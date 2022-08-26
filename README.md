@@ -5,8 +5,9 @@ A drone plugin for executing remote commands over SSH, through Teleport Machine 
 ![demo](./images/example.gif)
 
 [![Build Status](https://drone.erianna.com/api/badges/charlesportwoodii/drone-teleport/status.svg)](https://drone.erianna.com/charlesportwoodii/drone-teleport)
-[!Codecov](https://img.shields.io/codecov/c/github/charlesportwoodii/drone-teleport?style=flat-square&token=2287bad5-2349-4052-8608-459559990994)[]
-[!Docker Pulls](https://img.shields.io/docker/pulls/charlesportwoodii/drone-teleport?style=flat-square)[https://hub.docker.com/r/charlesportwoodii/drone-teleport]
+[![Latest Version](https://img.shields.io/github/v/tag/charlesportwoodii/drone-teleport?style=flat-square)](https://github.com/charlesportwoodii/drone-teleport/tags)
+[![Codecov](https://img.shields.io/codecov/c/github/charlesportwoodii/drone-teleport?style=flat-square&token=2287bad5-2349-4052-8608-459559990994)]()
+[![Docker Pulls](https://img.shields.io/docker/pulls/charlesportwoodii/drone-teleport?style=flat-square)](https://hub.docker.com/r/charlesportwoodii/drone-teleport)
 
 
 > _This project is not sponsored, supported, or endorsed by Graviton or Teleport in any capacity._
@@ -81,6 +82,8 @@ Docker image is managed via Drone pipeline, but can be built manually with [buil
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 -t charlesportwoodii/drone-teleport:latest  --no-cache .
 ```
+
+> _NOTE:_ Reference the .drone.yml `Cargo Build` section for the appropriate packages for cross-compilings for `amd64` and `arm64`.
 
 ## Drone Repository Configuration
 
