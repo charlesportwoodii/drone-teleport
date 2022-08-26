@@ -2,7 +2,7 @@ mod config;
 
 extern crate tokio;
 use std::sync::Arc;
-
+use std::process::exit;
 use colored::Colorize;
 
 /// A drone plugin for executing remote commands over SSH, through Teleport Machine IDs
@@ -28,9 +28,9 @@ async fn main() {
                 Ok(session) => {
                     // Iterate over all of the commands and run them syncronously
                     for command in commands.iter() {
-                        println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
                         match session.shell(format!("{} {}", env, command)).output().await {
                                 Ok(result) => {
+                                    println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
                                     println!(
                                         "{}{}",
                                         String::from_utf8(result.stdout).unwrap(),
@@ -40,15 +40,16 @@ async fn main() {
                                 // If any commit exits with a non-0 exit status code, stop execution of this task.
                                 if result.status.code() != Some(0) {
                                     if debug {
-                                        println!("\tExit: {}", result.status.code().unwrap());
+                                        println!("{}", format!("Exit: {}", result.status.code().unwrap()).red().bold());
                                     }
-                                    break;
+                                    exit(1);
                                 }
                             },
                             Err(error) => {
+                                println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
                                 // If a command fail (eg command not found or similar) stop processing additional commands
                                 println!("{}\n", error.to_string().red().bold().italic());
-                                break;
+                                exit(2);
                             }
                         };
                     }
@@ -59,6 +60,7 @@ async fn main() {
                     if debug {
                         println!("\t{}", error.to_string().italic());
                     }
+                    exit(3);
                 }
             };
         });
@@ -73,5 +75,7 @@ async fn main() {
             task.await;
         }
     }
+
+    exit(0);
 
 }
