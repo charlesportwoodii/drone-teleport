@@ -28,9 +28,6 @@ steps:
     settings:
       token:
         from_secret: CODECOV_TOKEN
-    volumes:
-    - name: docker_sock
-      path: /var/run/docker.sock
   - name: "Buildx"
     image: docker
     depends_on:
@@ -51,6 +48,9 @@ steps:
         from_secret: DOCKER_USERNAME
       password:
         from_secret: DOCKER_PASSWORD
+    volumes:
+    - name: docker_sock
+      path: /var/run/docker.sock
 
 volumes:
   - name: docker_sock
