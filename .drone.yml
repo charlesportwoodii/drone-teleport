@@ -1,0 +1,96 @@
+---
+kind: pipeline
+type: docker
+name: build
+
+platform:
+  arch: amd64
+
+steps:
+  - name: "Cargo Build"
+    image: ubuntu:22.04
+    when:
+      event:
+        - push
+        - tag
+    commands:
+      - apt update
+      - apt install curl libsodium-dev build-essential libc6-amd64-cross libc6-dev-amd64-cross libc6-arm64-cross libc6-dev-arm64-cross gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu -y ca-certificates --no-install-recommends
+      - curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - $HOME/.cargo/bin/rustup target add aarch64-unknown-linux-gnu
+      - $HOME/.cargo/bin/rustup target add x86_64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo build --release --target x86_64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo build --release --target aarch64-unknown-linux-gnu
+  - name: "Buildx"
+    image: docker
+    depends_on:
+      - "Cargo Build"
+    when:
+      event:
+        - tag
+    commands:
+      - apk add --no-cache curl
+      - mkdir -p ~/.docker/cli-plugins
+      - curl -Lqqs https://github.com/docker/buildx/releases/download/v0.9.1/buildx-v0.9.1.linux-amd64 -o ~/.docker/cli-plugins/docker-buildx
+      - chmod +x ~/.docker/cli-plugins/docker-buildx
+      - docker buildx create --use
+      - docker login -u=$username -p=$password
+      - docker buildx build --push --platform linux/arm64,linux/amd64 -t charlesportwoodii/drone-teleport:latest -t charlesportwoodii/drone-teleport:$${DRONE_TAG} --no-cache --compress .
+    environment:
+      username:
+        from_secret: DOCKER_USERNAME
+      password:
+        from_secret: DOCKER_PASSWORD
+    volumes:
+    - name: docker_sock
+      path: /var/run/docker.sock
+
+volumes:
+  - name: docker_sock
+    host:
+      path: /var/run/docker.sock
+
+---
+kind: pipeline
+type: docker
+name: test
+
+platform:
+  arch: amd64
+
+volumes:
+  - name: teleport-ssh
+    host:
+      path: /opt/teleport/home
+
+steps:
+  - name: "drone-teleport"
+    image: charlesportwoodii/drone-teleport:latest
+    volumes:
+      - name: teleport-ssh
+        path: /opt/teleport/home
+    when:
+      event:
+        - promote
+      target:
+        - test
+    settings:
+      proxy: teleport.erianna.net
+      hosts:
+        - balminuel.teleport.erianna.net
+        - balminuel.teleport.erianna.net
+      username: ci
+      data_path: /opt/teleport/home
+      debug: true
+      env:
+        kind: ${DRONE_STAGE_KIND}
+        stage: ${DRONE_STAGE_NAME}
+        step: ${DRONE_STAGE_NAME}
+        number: ${DRONE_STAGE_NUMBER}
+      script:
+        commands:
+          - id
+          - whoami
+          - ls -laht | awk '{ print $1 }'
+          - echo ${DRONE_COMMIT_SHA}
+          - echo a{b,c,d} | tr ' ' ,
