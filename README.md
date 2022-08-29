@@ -9,7 +9,6 @@ A drone plugin for executing remote commands over SSH, through Teleport Machine 
 [![Codecov](https://img.shields.io/codecov/c/github/charlesportwoodii/drone-teleport?style=flat-square&token=2287bad5-2349-4052-8608-459559990994)]()
 [![Docker Pulls](https://img.shields.io/docker/pulls/charlesportwoodii/drone-teleport?style=flat-square)](https://hub.docker.com/r/charlesportwoodii/drone-teleport)
 
-
 > _This project is not sponsored, supported, or endorsed by Graviton or Teleport in any capacity._
 
 ## Drone Usage
@@ -61,8 +60,8 @@ docker run --rm \
     -e PLUGIN_DEBUG=false \
     -e PLUGIN_PORT=3022 \
     -e PLUGIN_PROXY=teleport.example.com \
-    -e PLUGIN_CLUSTEr=teleport.example.com \
-    -v${PWD-.}:${PWD0-.} \
+    -e PLUGIN_CLUSTER=teleport.example.com \
+    -v${PWD-.}:${PWD-.} \
     -v${PWD-.} \
     -v/opt/teleport/home:/opt/teleport/home \
     charlesportwoodii/drone-teleport:latest
@@ -91,3 +90,6 @@ Please ensure that `trusted` mode is enabled in your drone repository settings t
 
 ![demo](./images/settings.png)
 
+## Execution Notes
+
+This plugin will execute commands in parallel for all listed servers and will stop on any error.

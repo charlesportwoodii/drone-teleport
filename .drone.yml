@@ -85,7 +85,6 @@ steps:
       proxy: teleport.erianna.net
       hosts:
         - balminuel.teleport.erianna.net
-        - balminuel.teleport.erianna.net
       username: ci
       data_path: /opt/teleport/home
       debug: true

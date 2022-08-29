@@ -39,9 +39,8 @@ async fn main() {
 
                                 // If any commit exits with a non-0 exit status code, stop execution of this task.
                                 if result.status.code() != Some(0) {
-                                    if debug {
-                                        println!("{}", format!("Exit: {}", result.status.code().unwrap()).red().bold());
-                                    }
+                                    println!("{}", format!("Exit: {}", result.status.code().unwrap()).red().bold());
+                                    session.close().await.unwrap();
                                     exit(1);
                                 }
                             },
@@ -49,6 +48,7 @@ async fn main() {
                                 println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
                                 // If a command fail (eg command not found or similar) stop processing additional commands
                                 println!("{}\n", error.to_string().red().bold().italic());
+                                session.close().await.unwrap();
                                 exit(2);
                             }
                         };

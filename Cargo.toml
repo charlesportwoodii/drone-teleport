@@ -10,14 +10,10 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.11.0", features = ["full"] }
-smol = { version = "1.2.5" }
-futures-lite = "1.12.0"
-easy-parallel = "3.2.0"
 futures = { verion = "0.3.23" }
 derivative = { version = "2.2.0" }
 clap = { version = "3.2.17", features = ["derive", "env"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
-anyhow = { version = "1.0" }
-openssh = { version = "0.9.6" }
+openssh = { version = "0.9.6"}
 colored = { version = "2.0.0" }
