@@ -7,6 +7,8 @@ LABEL maintainer="Charles R. Portwood II <charlesportwoodii@erianna.com" \
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+ENV PLUGIN_OP=connect
+
 # Add the teleport user
 RUN useradd -ms /bin/bash teleport
 
@@ -37,4 +39,4 @@ ADD target/x86_64-unknown-linux-gnu/release/drone-teleport /usr/sbin/drone-telep
 RUN mv /usr/sbin/drone-teleport-$(arch) /usr/sbin/drone-teleport
 RUN rm /usr/sbin/drone-teleport-*
 
-ENTRYPOINT ["/usr/sbin/drone-teleport"]
+ENTRYPOINT /usr/sbin/drone-teleport $PLUGIN_OP
