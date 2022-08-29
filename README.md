@@ -6,7 +6,6 @@ A drone plugin for executing remote commands over SSH, through Teleport Machine 
 
 [![Build Status](https://drone.erianna.com/api/badges/charlesportwoodii/drone-teleport/status.svg)](https://drone.erianna.com/charlesportwoodii/drone-teleport)
 [![Latest Version](https://img.shields.io/github/v/tag/charlesportwoodii/drone-teleport?style=flat-square)](https://github.com/charlesportwoodii/drone-teleport/tags)
-[![Codecov](https://img.shields.io/codecov/c/github/charlesportwoodii/drone-teleport?style=flat-square&token=2287bad5-2349-4052-8608-459559990994)]()
 [![Docker Pulls](https://img.shields.io/docker/pulls/charlesportwoodii/drone-teleport?style=flat-square)](https://hub.docker.com/r/charlesportwoodii/drone-teleport)
 
 > _This project is not sponsored, supported, or endorsed by Graviton or Teleport in any capacity._

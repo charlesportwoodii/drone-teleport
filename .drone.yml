@@ -21,13 +21,6 @@ steps:
       - $HOME/.cargo/bin/rustup target add x86_64-unknown-linux-gnu
       - $HOME/.cargo/bin/cargo build --release --target x86_64-unknown-linux-gnu
       - $HOME/.cargo/bin/cargo build --release --target aarch64-unknown-linux-gnu
-  - name: codecov
-    depends_on:
-      - "Cargo Build"
-    image: robertstettner/drone-codecov
-    settings:
-      token:
-        from_secret: CODECOV_TOKEN
   - name: "Buildx"
     image: docker
     depends_on:
