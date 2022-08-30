@@ -2,8 +2,6 @@
 
 A drone plugin for executing remote commands over SSH, through Teleport Machine IDs.
 
-![demo](./images/example.gif)
-
 [![Build Status](https://drone.erianna.com/api/badges/charlesportwoodii/drone-teleport/status.svg)](https://drone.erianna.com/charlesportwoodii/drone-teleport)
 [![Latest Version](https://img.shields.io/github/v/tag/charlesportwoodii/drone-teleport?style=flat-square)](https://github.com/charlesportwoodii/drone-teleport/tags)
 [![Docker Pulls](https://img.shields.io/docker/pulls/charlesportwoodii/drone-teleport?style=flat-square)](https://hub.docker.com/r/charlesportwoodii/drone-teleport)
@@ -12,7 +10,15 @@ A drone plugin for executing remote commands over SSH, through Teleport Machine 
 
 ## Drone Usage
 
-The following fields are required.
+This plugin supports two specific operations, defined by the `op` argument: `connect` and `transfer`.
+
+> NOTE: Your Drone instance must have a working Teleport Bot / Machine ID configuration active and available at `/opt/teleport/home`, or elsewhere on disk, and must be mounted into the container. Take a look at the [Teleport Machine ID Getting Started Guide](https://goteleport.com/docs/machine-id/getting-started/) for more information on how to set this up.
+
+### Connect
+
+![demo](./images/connect.gif)
+
+Connect is utilized to connect to an SSH target and run commands. Example arguments are as follows.
 
 ```yaml
 volumes:
@@ -26,6 +32,7 @@ steps:
     volumes:
       - name: teleport-ssh
         path: /opt/teleport/home
+      op: connect
       proxy: teleport.example.com
       hosts:
         - host1.teleport.example.com
@@ -43,7 +50,52 @@ steps:
           - echo a{b,c,d} | tr ' ' ,
 ```
 
-> NOTE: Your Drone instance must have a working Teleport Bot / Machine ID configuration active and available at `/opt/teleport/home`, or elsewhere on disk, and must be mounted into the container. Take a look at the [Teleport Machine ID Getting Started Guide](https://goteleport.com/docs/machine-id/getting-started/) for more information on how to set this up.
+### Transfer
+
+![demo](./images/transfer.gif)
+
+The `transfer` op may be utilized to transfer files from the source to the destination. Both single file and `glob` modes are supported via the following options:
+
+| Option | Result |
+|--------|--------|
+| `*` | All files in directory, but not recursive |
+| `**` | Glob recursive all files in directory |
+
+Files are transfered in ~ 64Kb buffers. Multiple hosts are supported.
+
+```yaml
+volumes:
+  - name: teleport-ssh
+    host:
+      path: /opt/teleport/home
+
+steps:
+  - name: "drone-teleport"
+    image: charlesportwoodii/drone-teleport:latest
+    volumes:
+      - name: teleport-ssh
+        path: /opt/teleport/home
+      op: transfer
+      proxy: teleport.example.com
+      compress: true
+      compress_level: 13
+      hosts:
+        - host1.teleport.example.com
+        - host2.teleport.example.com
+      username: ci
+      data_path: /opt/teleport/home
+      files:
+        - src: /path/to/file
+           dst: /remote/file
+        - src: /path/to/dir/*
+           dst: /path/to/dir/
+        - src: /path/**/*
+           dst: /path/blob
+```
+
+> _drone-teleport_ will automatically create an archive of all files in _src_ and compress them for transfer using zstd. Make sure your remote `tar` program is at least version >=1.31 and has support for zstd built in. Compression is done with compression level of 13 by default and is configured via `compress_level` option, and can be disabled entirely by setting `compress` to false.
+
+> NOTE: File transfer is destructive on the remote target. _drone-teleport_ will overwrite any existing files on the remote without warning. Make sure your _dst_ argument is valid before executing!
 
 ## Docker Usage
 
@@ -51,6 +103,7 @@ Execute from the working directory:
 
 ```bash
 docker run --rm \
+    -e PLUGIN_OP=connect|transfer
     -e PLUGIN_DATA_PATH=/opt/teleport/home \
     -e PLUGIN_HOSTS=host1.teleport.example.com,host2.teleport.example.com \
     -e PLUGIN_USERNAME=ci \
@@ -60,6 +113,7 @@ docker run --rm \
     -e PLUGIN_PORT=3022 \
     -e PLUGIN_PROXY=teleport.example.com \
     -e PLUGIN_CLUSTER=teleport.example.com \
+    -e PLUGIN_FILES="[{ \"src\": \"source-file\",  \"dst\": \"destination-file\"}]"
     -v${PWD-.}:${PWD-.} \
     -v${PWD-.} \
     -v/opt/teleport/home:/opt/teleport/home \

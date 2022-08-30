@@ -1,0 +1,17 @@
+!target/aarch64-unknown-linux-gnu/release/drone-teleport
+!target/x86_64-unknown-linux-gnu/release/drone-teleport
+target/debug
+target/release
+target/**/.fingerprint
+target/**/build
+target/**/deps
+target/**/examples
+target/**/incrimental
+.cargo
+images
+.drone.yml
+.gitignore
+Dockerfile
+LICENSE
+README.md
+Cargo.*

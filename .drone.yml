@@ -35,7 +35,7 @@ steps:
       - chmod +x ~/.docker/cli-plugins/docker-buildx
       - docker buildx create --use
       - docker login -u=$username -p=$password
-      - docker buildx build --push --platform linux/arm64,linux/amd64 -t charlesportwoodii/drone-teleport:latest -t charlesportwoodii/drone-teleport:$${DRONE_TAG} --no-cache --compress .
+      - docker buildx build -f ./Dockerfile --push --platform linux/arm64,linux/amd64 -t charlesportwoodii/drone-teleport:connect -t charlesportwoodii/drone-teleport:connect-$${DRONE_TAG} --no-cache --compress .
     environment:
       username:
         from_secret: DOCKER_USERNAME
@@ -64,7 +64,7 @@ volumes:
       path: /opt/teleport/home
 
 steps:
-  - name: "drone-teleport"
+  - name: "Execute Commands"
     image: charlesportwoodii/drone-teleport:latest
     volumes:
       - name: teleport-ssh
@@ -75,6 +75,7 @@ steps:
       target:
         - test
     settings:
+      op: transfer
       proxy: teleport.erianna.net
       hosts:
         - balminuel.teleport.erianna.net
@@ -93,3 +94,26 @@ steps:
           - ls -laht | awk '{ print $1 }'
           - echo ${DRONE_COMMIT_SHA}
           - echo a{b,c,d} | tr ' ' ,
+  - name: "Transfer Files"
+    image: charlesportwoodii/drone-teleport:latest
+    volumes:
+      - name: teleport-ssh
+        path: /opt/teleport/home
+    when:
+      event:
+        - promote
+      target:
+        - test
+    settings:
+      op: transfer
+      proxy: teleport.erianna.net
+      hosts:
+        - balminuel.teleport.erianna.net
+      username: ci
+      data_path: /opt/teleport/home
+      debug: true
+      files:
+        - src: "test"
+          dst: "/tmp/test"
+        - src: "test/**"
+          dst: "/tmp"
