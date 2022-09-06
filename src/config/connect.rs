@@ -23,9 +23,9 @@ impl ConnectConfig {
     pub fn build_env<'a>(&'a self) -> String {
         let mut envstr: Vec<String> = Vec::new();
         for (k, v) in &self.env {
-            envstr.push(format!("{}={}", k, v));
+            envstr.push(format!("export {}={}", k, v));
         }
-        return envstr.join(" ");
+        return envstr.join(" && ");
     }
 
     // Drone submits PLUGIN_SCRIPT as a comma-separated list if settings:script is used.
@@ -106,7 +106,7 @@ impl ConnectConfig {
                     Ok(session) => {
                         // Iterate over all of the commands and run them syncronously
                         for command in commands.iter() {
-                            match session.shell(format!("{} {}", env, command)).output().await {
+                            match session.shell(format!("{}; {}", env, command)).output().await {
                                     Ok(result) => {
                                         println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
                                         println!(
