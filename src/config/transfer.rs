@@ -149,14 +149,21 @@ impl TransferConfig {
                                     let mut archive_builder = Builder::new(archive);
                                     for entry in glob {
                                         if let Ok(path) = entry {
-                                            archive_builder.append_path(path).unwrap();
+                                            let pathstring = path.to_owned();
+                                            if debug {
+                                                println!("\t{}: Adding file to archive: {}", &host.bold().yellow(),  &pathstring.display().to_string().italic().cyan());
+                                            }
+                                            if let Err(done) = archive_builder.append_path(path) {
+                                                println!("{} {} - {}", "Failed to add file: ".bold().red(), &pathstring.display().to_string().italic().cyan(), done.to_string().bold());
+                                                exit(1);
+                                            }
                                         }
                                     }
 
                                     // Verify that the archive is built out
                                     if let Err(done) = archive_builder.finish() {
                                         println!("{}: {}", "Unable to create local archive".bold().red(), done.to_string().bold());
-                                        exit(6);
+                                        exit(1);
                                     }
 
 
@@ -164,12 +171,33 @@ impl TransferConfig {
                                     if compress {
                                         println!("{}: Compressing archive prior to transfer.", &host.bold().yellow());
                                         let comp_tar_name = format!("/tmp/{}.tar.zstd", farcname);
+
                                         let new_archive = File::create(comp_tar_name).unwrap();
+                                        let mut encoder = zstd::Encoder::new(new_archive, compression_level).unwrap();
+
                                         archive = File::open(format!("/tmp/{}.tar", farcname)).unwrap();
-                                        if let Err(_comp_rst) = zstd::stream::copy_encode(archive, new_archive, compression_level) {
-                                            println!("{}: Unable to compress archive. Aborting with error: {}", &host.bold().yellow(), _comp_rst);
-                                            exit(7);
-                                        }
+                                        if let Err(done) = std::io::copy(&mut archive, &mut encoder) {
+                                            println!("{}: Compression of archived failed: {}",
+                                                &host.bold().yellow(),
+                                                done.to_string().italic()
+                                            );
+                                            exit(1);
+                                        };
+
+                                        if let Err(done) = encoder.finish() {
+                                            println!("{}: Compression of archived failed: {}",
+                                                &host.bold().yellow(),
+                                                done.to_string().italic()
+                                            );
+                                            exit(1);
+                                        };
+
+                                        if let Err(done) = remove_file(tarname.clone()) {
+                                            println!("{}: Unable to cleanup old file: {}",
+                                                &host.bold().yellow(),
+                                                done.to_string().italic()
+                                            );
+                                        };
                                         tarname = format!("/tmp/{}.tar.zstd", farcname);
                                     }
 
@@ -236,8 +264,16 @@ impl TransferConfig {
                                     }
 
                                     // Extract the archive on the remote server and delete it
+                                    if debug {
+                                        println!("{}: {}", &host.bold().yellow(), format!("Extracting {} to {}", tarname, dst));
+                                    }
+
                                     if let Err(_command) = handle.block_on(session.shell(format!("tar -xf {} -C {}", tarname, dst)).output()) {
                                         println!("{} {}", "Unable to extract archive on remote".bold().red(), &host.bold().yellow());
+                                    }
+
+                                    if debug {
+                                        println!("{}: {}", &host.bold().yellow(), format!("Deleting {} on remote", tarname));
                                     }
 
                                     // Delete the archive on the remote
@@ -262,12 +298,12 @@ impl TransferConfig {
                             } else {
                                 // Failed to create new SFTP instance
                                 println!("{}: {}.", &host, "Failed to create SFTP instance".bold().red());
-                                exit(3);
+                                exit(1);
                             }
                         } else {
                             // Failed to setup SFTP subsystem
                             println!("{}: {}", &host, "Failed to setup SFTP subsystem on remote.".bold().red());
-                            exit(2);
+                            exit(1);
                         }
 
                     // Close the connection, errors don't matter
