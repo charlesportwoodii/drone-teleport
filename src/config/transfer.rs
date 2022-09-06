@@ -86,10 +86,15 @@ impl TransferConfig {
             .unwrap()
             .to_owned();
 
+            if files.is_empty() {
+                println!("File list missing src or dst. Hint: settings:files should be an array of objects with src & dst keypairs, not an individual array elements. (e.g.: files: {{ src: ./, dst: /tmp}})");
+                exit(1);
+            }
             let sb = Arc::new(cfg.get_sb());
             let debug = cfg.debug.to_owned();
             let compress = self.compress.to_owned();
             let compression_level = self.compress_level.to_owned();
+
 
             let task = tokio::task::spawn_blocking(move || {
                 let handle = tokio::runtime::Handle::current();

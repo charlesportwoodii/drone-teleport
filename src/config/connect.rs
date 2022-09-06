@@ -108,7 +108,7 @@ impl ConnectConfig {
                         for command in commands.iter() {
                             match session.shell(format!("{}; {}", env, command)).output().await {
                                     Ok(result) => {
-                                        println!("{}", format!("{}: {} {}", &host.to_owned().yellow(), env, command.to_owned().green()));
+                                        println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
                                         println!(
                                             "{}{}",
                                             String::from_utf8(result.stdout).unwrap(),
