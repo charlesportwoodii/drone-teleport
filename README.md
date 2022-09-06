@@ -32,6 +32,7 @@ steps:
     volumes:
       - name: teleport-ssh
         path: /opt/teleport/home
+    settings:
       op: connect
       proxy: teleport.example.com
       hosts:
@@ -75,6 +76,7 @@ steps:
     volumes:
       - name: teleport-ssh
         path: /opt/teleport/home
+    settings:
       op: transfer
       proxy: teleport.example.com
       compress: true
