@@ -92,7 +92,7 @@ steps:
 
 > _drone-teleport_ will automatically create an archive of all files in _src_ and compress them for transfer using zstd. Make sure your remote `tar` program is at least version >=1.31 and has support for zstd built in. Compression is done with compression level of 13 by default and is configured via `compress_level` option, and can be disabled entirely by setting `compress` to false.
 
-> NOTE: If you need to grab all files including hidden files, It's recommended to add a `depends_on` previous step that creates a single tar archive, then set that as the `src` instead of adding multiple src/dst file targets.
+> NOTE: If you need to grab all files including hidden files, It's recommended to add a `depends_on` previous step that creates a single tar archive, then set that as the `src` instead of adding multiple src/dst file targets, then extracting that on the remote target.
 > NOTE: File transfer is destructive on the remote target. _drone-teleport_ will overwrite any existing files on the remote without warning. Make sure your _dst_ argument is valid before executing!
 
 ## Docker Usage

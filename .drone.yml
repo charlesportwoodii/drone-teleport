@@ -35,7 +35,7 @@ steps:
       - chmod +x ~/.docker/cli-plugins/docker-buildx
       - docker buildx create --use
       - docker login -u=$username -p=$password
-      - docker buildx build -f ./Dockerfile --push --platform linux/arm64,linux/amd64 -t charlesportwoodii/drone-teleport:connect -t charlesportwoodii/drone-teleport:connect-$${DRONE_TAG} --no-cache --compress .
+      - docker buildx build -f ./Dockerfile --push --platform linux/arm64,linux/amd64 -t charlesportwoodii/drone-teleport:latest -t charlesportwoodii/drone-teleport:$${DRONE_TAG} --no-cache --compress .
     environment:
       username:
         from_secret: DOCKER_USERNAME
