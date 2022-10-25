@@ -106,7 +106,12 @@ impl ConnectConfig {
                     Ok(session) => {
                         // Iterate over all of the commands and run them syncronously
                         for command in commands.iter() {
-                            match session.shell(format!("{}; {}", env, command)).output().await {
+                            let command_to_run = match env.trim().is_empty() {
+                                true => format!("{}", command),
+                                false => format!("{}; {}", env, command)
+                            };
+
+                            match session.shell(command_to_run).output().await {
                                     Ok(result) => {
                                         println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
                                         println!(
