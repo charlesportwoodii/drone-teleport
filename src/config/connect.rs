@@ -25,6 +25,13 @@ impl ConnectConfig {
         for (k, v) in &self.env {
             envstr.push(format!("export {}={}", k, v));
         }
+
+        for (k, v) in std::env::vars() {
+            if k.starts_with("PLUGIN_") {
+                envstr.push(format!("export {}={}", k.replace("PLUGIN_", ""), v));
+            }
+        }
+
         return envstr.join(" && ");
     }
 
@@ -94,10 +101,13 @@ impl ConnectConfig {
         for host in cfg.hosts.to_owned() {
             let sb = Arc::new(cfg.get_sb());
             let env = Arc::new(self.build_env());
-            let commands =  self
-                .parse_script_json()
-                .unwrap()
-                .to_owned();
+            let commands = match self.parse_script_json() {
+                Ok(commands) => commands.to_owned(),
+                Err(_) => {
+                    println!("No commands supplied.");
+                    exit(1);
+                }
+            };
             let debug = cfg.debug.to_owned();
 
             let task = tokio::spawn(async move {
