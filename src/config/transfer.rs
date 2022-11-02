@@ -5,24 +5,24 @@ use crate::config::state::Config;
 use clap::Parser;
 use std::collections::HashMap;
 
-use std::sync::Arc;
-use std::process::exit;
 use colored::Colorize;
-use glob::glob_with;
-use glob::MatchOptions;
+use glob::{glob_with, MatchOptions};
+use std::{process::exit, sync::Arc};
 
-use std::path::Path;
-use std::fs::{File, remove_file};
-use std::io::Read;
+use std::{
+    fs::{remove_file, File},
+    io::Read,
+    path::Path,
+};
 
-use tar::Builder;
-use rand::distributions::{Alphanumeric, DistString};
+use human_bytes::human_bytes;
 use openssh::Stdio;
 use openssh_sftp_client::Sftp;
+use rand::distributions::{Alphanumeric, DistString};
 use std::time::Instant;
-use human_bytes::human_bytes;
+use tar::Builder;
 
-#[derive(Debug,Parser,Clone)]
+#[derive(Debug, Parser, Clone)]
 #[clap(author, version, about, long_about = None)]
 pub struct TransferConfig {
     /// A list of src => dst files to transfer
@@ -30,36 +30,45 @@ pub struct TransferConfig {
     pub files: Vec<String>,
 
     /// Whether or not to enable compression on uploads. Defaults to true.
-    #[clap(long, value_parser, default_value_t= true, env = "PLUGIN_COMPRESS")]
+    #[clap(long, value_parser, default_value_t = true, env = "PLUGIN_COMPRESS")]
     pub compress: bool,
 
     /// ZSTD compression level.
-    #[clap(long, value_parser, default_value_t= 13, env = "PLUGIN_COMPRESS_LEVEL")]
+    #[clap(
+        long,
+        value_parser,
+        default_value_t = 13,
+        env = "PLUGIN_COMPRESS_LEVEL"
+    )]
     pub compress_level: i32,
 }
 
 impl TransferConfig {
     // ~64 Kb
-    const BUF_SIZE : usize = 2 << 16;
+    const BUF_SIZE: usize = 2 << 16;
 
-    pub fn parse_files_json<'a>(&'a self) -> Result<std::collections::HashMap<String,String>, std::io::Error> {
+    pub fn parse_files_json<'a>(
+        &'a self,
+    ) -> Result<std::collections::HashMap<String, String>, std::io::Error> {
         let files = self.files.clone();
         if files.len() == 0 {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "No files provided to transfer."));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "No files provided to transfer.",
+            ));
         }
 
-        let json : Vec<serde_json::Value> = serde_json::from_str(&files[0])?;
+        let json: Vec<serde_json::Value> = serde_json::from_str(&files[0])?;
 
-        let mut result : HashMap<String, String> = HashMap::new();
+        let mut result: HashMap<String, String> = HashMap::new();
         for obj in json {
             if obj.is_object() {
-               let sd = obj.as_object().unwrap();
-               if sd.contains_key("src") && sd.contains_key("dst") {
-
-                let src = sd.get("src").unwrap().as_str().unwrap();
-                let dst = sd.get("dst").unwrap().as_str().unwrap();
-                result.insert(src.to_string(), dst.to_string());
-               }
+                let sd = obj.as_object().unwrap();
+                if sd.contains_key("src") && sd.contains_key("dst") {
+                    let src = sd.get("src").unwrap().as_str().unwrap();
+                    let dst = sd.get("dst").unwrap().as_str().unwrap();
+                    result.insert(src.to_string(), dst.to_string());
+                }
             }
         }
 
@@ -81,10 +90,7 @@ impl TransferConfig {
             // Iterate over each host and create the processing task
             // File transfers are syncronous IO, so run them in separate threads
             // todo!() => Make this so it can live outside of this loop
-            let files = self
-            .parse_files_json()
-            .unwrap()
-            .to_owned();
+            let files = self.parse_files_json().unwrap().to_owned();
 
             if files.is_empty() {
                 println!("File list missing src or dst. Hint: settings:files should be an array of objects with src & dst keypairs, not an individual array elements. (e.g.: files: {{ src: ./, dst: /tmp}})");
@@ -95,225 +101,302 @@ impl TransferConfig {
             let compress = self.compress.to_owned();
             let compression_level = self.compress_level.to_owned();
 
-
             let task = tokio::task::spawn_blocking(move || {
                 let handle = tokio::runtime::Handle::current();
                 if let Ok(session) = handle.block_on(sb.to_owned().connect(&host)) {
-                    if let Ok(mut child) = handle.block_on(session
-                        .subsystem("sftp")
-                        .stdin(Stdio::piped())
-                        .stdout(Stdio::piped())
-                        .spawn()) {
-                            if let Ok (sftp) = handle.block_on(Sftp::new(
-                                child.stdin().take().unwrap(),
-                                child.stdout().take().unwrap(),
-                                Default::default(),
-                            )) {
-                                for (src, dst) in files {
-                                    let mut fpath = dst.clone();
+                    if let Ok(mut child) = handle.block_on(
+                        session
+                            .subsystem("sftp")
+                            .stdin(Stdio::piped())
+                            .stdout(Stdio::piped())
+                            .spawn(),
+                    ) {
+                        if let Ok(sftp) = handle.block_on(Sftp::new(
+                            child.stdin().take().unwrap(),
+                            child.stdout().take().unwrap(),
+                            Default::default(),
+                        )) {
+                            for (src, dst) in files {
+                                let mut fpath = dst.clone();
 
-                                    // Create dst on the remote server
-                                    if debug {
-                                        println!("{}: Ensuring remote directory path {} exists for {}", &host.bold().yellow(), &dst.to_string().italic().cyan(), &src.to_string().italic().cyan());
-                                    }
-
-                                    // Grab the paths to create
-                                    let mut paths : Vec<String> = Vec::new();
-                                    while fpath != "/" {
-                                        paths.push(fpath.to_string());
-                                        let path = Path::new(fpath.as_str());
-                                        fpath = path.parent().unwrap().display().to_string();
-
-                                        if fpath == "/" {
-                                            break;
-                                        }
-                                    }
-
-                                    // Create the paths in reverse tree order - sftp doesn't have a `mkdir -p` equivalent so we have to make them each one-by-one
-                                    paths.reverse();
-                                    for fp in paths {
-                                        let path = Path::new(fp.as_str());
-                                        #[allow(unused_must_use)] {
-                                            handle.block_on(sftp.fs().create_dir(path));
-                                        }
-                                    }
-
-                                    // Grab all the files matched by the glob, thenn create an archive to upload
-                                    if debug {
-                                        println!("{}: Creating archive to upload.", &host.bold().yellow());
-                                    }
-
-                                    let glob = glob_with(&src, glob_options).unwrap();
-                                    let farcname = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
-                                    let mut tarname = format!("{}.tar", farcname);
-
-                                    let mut archive = File::create(format!("/tmp/{}", tarname.clone())).unwrap();
-                                    let mut archive_builder = Builder::new(archive);
-
-                                    for entry in glob {
-                                        if let Ok(path) = entry {
-                                            let pathstring = path.to_owned();
-                                            if let Err(done) = archive_builder.append_path(path) {
-                                                println!("{} {} - {}", "Failed to add file: ".bold().red(), &pathstring.display().to_string().italic().cyan(), done.to_string().bold());
-                                                exit(1);
-                                            }
-                                        }
-                                    }
-
-                                    // Verify that the archive is built out
-                                    if let Err(done) = archive_builder.finish() {
-                                        println!("{}: {}", "Unable to create local archive".bold().red(), done.to_string().bold());
-                                        exit(1);
-                                    }
-
-                                    // If compression is enabled, compress to archive to zstd
-                                    if compress {
-                                        println!("{}: Compressing archive prior to transfer.", &host.bold().yellow());
-                                        let new_archive = File::create(format!("/tmp/{}.tar.zst", farcname)).unwrap();
-                                        let mut encoder = zstd::Encoder::new(new_archive, compression_level).unwrap();
-
-                                        archive = File::open(format!("/tmp/{}", &tarname)).unwrap();
-                                        if let Err(done) = std::io::copy(&mut archive, &mut encoder) {
-                                            println!("{}: Compression of archived failed: {}",
-                                                &host.bold().yellow(),
-                                                done.to_string().italic()
-                                            );
-                                            exit(1);
-                                        };
-
-                                        if let Err(done) = encoder.finish() {
-                                            println!("{}: Compression of archived failed: {}",
-                                                &host.bold().yellow(),
-                                                done.to_string().italic()
-                                            );
-                                            exit(1);
-                                        };
-
-                                        // Delete the old file
-                                        if let Err(done) = remove_file(tarname.clone()) {
-                                            println!("{}: Unable to cleanup old file: {}",
-                                                &host.bold().yellow(),
-                                                done.to_string().italic()
-                                            );
-                                        };
-
-                                        // Rename the archive file
-                                        tarname = format!("{}.tar.zst", farcname);
-                                    }
-
-                                    // Create the remote archive file on the SFTP server
-                                    let mut r_file = handle.block_on(sftp
-                                        .options()
-                                        .read(true)
-                                        .create(true)
-                                        .write(true)
-                                        .open(format!("{}/{}", dst, tarname))).unwrap();
-
-                                    // Rewind the archive by re-opening the file
-                                    let mut farchive = File::open(format!("/tmp/{}", tarname)).unwrap();
-
-                                    println!("{}", format!("/tmp/{}", tarname));
-                                    let archive_size = human_bytes(farchive.metadata().unwrap().len() as f64);
-                                    let now = Instant::now();
-                                    {
-                                        println!("{}: {} {} {}",
-                                            &host.bold().yellow(),
-                                            "Transferring".bold(),
-                                            &src.to_string().italic(),
-                                            archive_size.bold().green()
-                                        );
-
-                                        // Write the archive to the remote location
-                                        let mut buffer = [0u8; TransferConfig::BUF_SIZE];
-                                        let mut transfered = 0;
-                                        loop {
-                                            let rc = farchive.read(&mut buffer).unwrap();
-                                            handle.block_on(r_file.write_all(&buffer[..rc])).unwrap();
-                                            transfered += TransferConfig::BUF_SIZE;
-
-                                            // Log at 8Mb intervals for progress indicator
-                                            if debug {
-                                                if transfered % (2 << 21) == 0 {
-                                                    println!("{}: {} {}/{} \r",
-                                                        &host.bold().yellow(),
-                                                        "Transferring -".bold(),
-                                                        human_bytes(transfered as f64).bold().cyan(),
-                                                        archive_size.bold().green()
-                                                    );
-                                                }
-                                            }
-
-                                            if rc != TransferConfig::BUF_SIZE {
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    let elapsed = now.elapsed();
-                                    println!("{}: {} {} {} {} {}{}",
+                                // Create dst on the remote server
+                                if debug {
+                                    println!(
+                                        "{}: Ensuring remote directory path {} exists for {}",
                                         &host.bold().yellow(),
-                                        "Completed".bold(),
-                                        &src.to_string().italic(),
-                                        archive_size.bold().green(),
-                                        "in", elapsed.as_secs().to_string().bold().cyan(),
-                                        " seconds"
+                                        &dst.to_string().italic().cyan(),
+                                        &src.to_string().italic().cyan()
                                     );
+                                }
 
-                                    // Close the remote file
-                                    #[allow(unused_must_use)] {
-                                        handle.block_on(r_file.close());
+                                // Grab the paths to create
+                                let mut paths: Vec<String> = Vec::new();
+                                while fpath != "/" {
+                                    paths.push(fpath.to_string());
+                                    let path = Path::new(fpath.as_str());
+                                    fpath = path.parent().unwrap().display().to_string();
+
+                                    if fpath == "/" {
+                                        break;
                                     }
+                                }
 
-                                    // Extract the archive on the remote server and delete it
-                                    if debug {
-                                        println!("{}: {}", &host.bold().yellow(), format!("Extracting {} to {}", tarname, dst));
+                                // Create the paths in reverse tree order - sftp doesn't have a `mkdir -p` equivalent so we have to make them each one-by-one
+                                paths.reverse();
+                                for fp in paths {
+                                    let path = Path::new(fp.as_str());
+                                    #[allow(unused_must_use)]
+                                    {
+                                        handle.block_on(sftp.fs().create_dir(path));
                                     }
+                                }
 
-                                    if let Err(_command) = handle.block_on(session.shell(format!("tar -xf {}/{} -C {}", dst, tarname, dst)).output()) {
-                                        println!("{} {}", "Unable to extract archive on remote".bold().red(), &host.bold().yellow());
-                                    }
+                                // Grab all the files matched by the glob, thenn create an archive to upload
+                                if debug {
+                                    println!(
+                                        "{}: Creating archive to upload.",
+                                        &host.bold().yellow()
+                                    );
+                                }
 
-                                    if debug {
-                                        println!("{}: {}", &host.bold().yellow(), format!("Deleting {} on remote", tarname));
-                                    }
+                                let glob = glob_with(&src, glob_options).unwrap();
+                                let farcname =
+                                    Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+                                let mut tarname = format!("{}.tar", farcname);
 
-                                    // Delete the archive on the remote
-                                    if let Err(_command) = handle.block_on(session.shell(format!("rm {}/{}", &dst, &tarname)).output()) {
-                                        println!("{} {}", "Unable to delete archive on remote".bold().red(), &host.bold().yellow());
-                                    }
+                                let mut archive =
+                                    File::create(format!("/tmp/{}", tarname.clone())).unwrap();
+                                let mut archive_builder = Builder::new(archive);
 
-                                    // Cleanup the local disk
-                                    if let Err(rmrst) = remove_file(format!("/tmp/{}", tarname.clone())) {
-                                        if debug {
-                                            println!("{} {}\n\t{}",
-                                                "Unable to remove local archive directory:".bold().red(),
-                                                &tarname.bold().yellow(),
-                                                rmrst.to_string().italic()
+                                for entry in glob {
+                                    if let Ok(path) = entry {
+                                        let pathstring = path.to_owned();
+                                        if let Err(done) = archive_builder.append_path(path) {
+                                            println!(
+                                                "{} {} - {}",
+                                                "Failed to add file: ".bold().red(),
+                                                &pathstring.display().to_string().italic().cyan(),
+                                                done.to_string().bold()
                                             );
+                                            exit(1);
                                         }
                                     }
                                 }
 
-                                // Close the sftp connection
-                                handle.block_on(sftp.close()).unwrap();
-                            } else {
-                                // Failed to create new SFTP instance
-                                println!("{}: {}.", &host, "Failed to create SFTP instance".bold().red());
-                                exit(1);
+                                // Verify that the archive is built out
+                                if let Err(done) = archive_builder.finish() {
+                                    println!(
+                                        "{}: {}",
+                                        "Unable to create local archive".bold().red(),
+                                        done.to_string().bold()
+                                    );
+                                    exit(1);
+                                }
+
+                                // If compression is enabled, compress to archive to zstd
+                                if compress {
+                                    println!(
+                                        "{}: Compressing archive prior to transfer.",
+                                        &host.bold().yellow()
+                                    );
+                                    let new_archive =
+                                        File::create(format!("/tmp/{}.tar.zst", farcname)).unwrap();
+                                    let mut encoder =
+                                        zstd::Encoder::new(new_archive, compression_level).unwrap();
+
+                                    archive = File::open(format!("/tmp/{}", &tarname)).unwrap();
+                                    if let Err(done) = std::io::copy(&mut archive, &mut encoder) {
+                                        println!(
+                                            "{}: Compression of archived failed: {}",
+                                            &host.bold().yellow(),
+                                            done.to_string().italic()
+                                        );
+                                        exit(1);
+                                    };
+
+                                    if let Err(done) = encoder.finish() {
+                                        println!(
+                                            "{}: Compression of archived failed: {}",
+                                            &host.bold().yellow(),
+                                            done.to_string().italic()
+                                        );
+                                        exit(1);
+                                    };
+
+                                    // Delete the old file
+                                    if let Err(done) = remove_file(tarname.clone()) {
+                                        println!(
+                                            "{}: Unable to cleanup old file: {}",
+                                            &host.bold().yellow(),
+                                            done.to_string().italic()
+                                        );
+                                    };
+
+                                    // Rename the archive file
+                                    tarname = format!("{}.tar.zst", farcname);
+                                }
+
+                                // Create the remote archive file on the SFTP server
+                                let mut r_file = handle
+                                    .block_on(
+                                        sftp.options()
+                                            .read(true)
+                                            .create(true)
+                                            .write(true)
+                                            .open(format!("{}/{}", dst, tarname)),
+                                    )
+                                    .unwrap();
+
+                                // Rewind the archive by re-opening the file
+                                let mut farchive = File::open(format!("/tmp/{}", tarname)).unwrap();
+
+                                println!("{}", format!("/tmp/{}", tarname));
+                                let archive_size =
+                                    human_bytes(farchive.metadata().unwrap().len() as f64);
+                                let now = Instant::now();
+                                {
+                                    println!(
+                                        "{}: {} {} {}",
+                                        &host.bold().yellow(),
+                                        "Transferring".bold(),
+                                        &src.to_string().italic(),
+                                        archive_size.bold().green()
+                                    );
+
+                                    // Write the archive to the remote location
+                                    let mut buffer = [0u8; TransferConfig::BUF_SIZE];
+                                    let mut transfered = 0;
+                                    loop {
+                                        let rc = farchive.read(&mut buffer).unwrap();
+                                        handle.block_on(r_file.write_all(&buffer[..rc])).unwrap();
+                                        transfered += TransferConfig::BUF_SIZE;
+
+                                        // Log at 8Mb intervals for progress indicator
+                                        if debug {
+                                            if transfered % (2 << 21) == 0 {
+                                                println!(
+                                                    "{}: {} {}/{} \r",
+                                                    &host.bold().yellow(),
+                                                    "Transferring -".bold(),
+                                                    human_bytes(transfered as f64).bold().cyan(),
+                                                    archive_size.bold().green()
+                                                );
+                                            }
+                                        }
+
+                                        if rc != TransferConfig::BUF_SIZE {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                let elapsed = now.elapsed();
+                                println!(
+                                    "{}: {} {} {} {} {}{}",
+                                    &host.bold().yellow(),
+                                    "Completed".bold(),
+                                    &src.to_string().italic(),
+                                    archive_size.bold().green(),
+                                    "in",
+                                    elapsed.as_secs().to_string().bold().cyan(),
+                                    " seconds"
+                                );
+
+                                // Close the remote file
+                                #[allow(unused_must_use)]
+                                {
+                                    handle.block_on(r_file.close());
+                                }
+
+                                // Extract the archive on the remote server and delete it
+                                if debug {
+                                    println!(
+                                        "{}: {}",
+                                        &host.bold().yellow(),
+                                        format!("Extracting {} to {}", tarname, dst)
+                                    );
+                                }
+
+                                if let Err(_command) = handle.block_on(
+                                    session
+                                        .shell(format!("tar -xf {}/{} -C {}", dst, tarname, dst))
+                                        .output(),
+                                ) {
+                                    println!(
+                                        "{} {}",
+                                        "Unable to extract archive on remote".bold().red(),
+                                        &host.bold().yellow()
+                                    );
+                                }
+
+                                if debug {
+                                    println!(
+                                        "{}: {}",
+                                        &host.bold().yellow(),
+                                        format!("Deleting {} on remote", tarname)
+                                    );
+                                }
+
+                                // Delete the archive on the remote
+                                if let Err(_command) = handle.block_on(
+                                    session.shell(format!("rm {}/{}", &dst, &tarname)).output(),
+                                ) {
+                                    println!(
+                                        "{} {}",
+                                        "Unable to delete archive on remote".bold().red(),
+                                        &host.bold().yellow()
+                                    );
+                                }
+
+                                // Cleanup the local disk
+                                if let Err(rmrst) = remove_file(format!("/tmp/{}", tarname.clone()))
+                                {
+                                    if debug {
+                                        println!(
+                                            "{} {}\n\t{}",
+                                            "Unable to remove local archive directory:"
+                                                .bold()
+                                                .red(),
+                                            &tarname.bold().yellow(),
+                                            rmrst.to_string().italic()
+                                        );
+                                    }
+                                }
                             }
+
+                            // Close the sftp connection
+                            handle.block_on(sftp.close()).unwrap();
                         } else {
-                            // Failed to setup SFTP subsystem
-                            println!("{}: {}", &host, "Failed to setup SFTP subsystem on remote.".bold().red());
+                            // Failed to create new SFTP instance
+                            println!(
+                                "{}: {}.",
+                                &host,
+                                "Failed to create SFTP instance".bold().red()
+                            );
                             exit(1);
                         }
+                    } else {
+                        // Failed to setup SFTP subsystem
+                        println!(
+                            "{}: {}",
+                            &host,
+                            "Failed to setup SFTP subsystem on remote.".bold().red()
+                        );
+                        exit(1);
+                    }
 
                     // Close the connection, errors don't matter
-                    #[allow(unused_must_use)] {
+                    #[allow(unused_must_use)]
+                    {
                         handle.block_on(session.close());
                     }
                 } else {
                     // Failed to connect
-                    println!("{} {}", "Unable to connect to Teleport target:".red().bold(), &host.to_owned().cyan().italic());
+                    println!(
+                        "{} {}",
+                        "Unable to connect to Teleport target:".red().bold(),
+                        &host.to_owned().cyan().italic()
+                    );
                     exit(1);
                 }
             });
@@ -324,7 +407,8 @@ impl TransferConfig {
 
         // Execute all commands asyncronously
         for task in tasks {
-            #[allow(unused_must_use)] {
+            #[allow(unused_must_use)]
+            {
                 task.await;
             }
         }
