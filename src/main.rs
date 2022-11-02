@@ -11,10 +11,9 @@ async fn main() {
     match &cfg.cmd {
         config::state::SubCommand::Connect(config) => {
             config.connect(&cfg).await;
-        },
+        }
         config::state::SubCommand::Transfer(config) => {
             config.transfer(&cfg).await;
-        },
-
+        }
     }
 }

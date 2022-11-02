@@ -1,17 +1,16 @@
 use clap::Parser;
 use std::collections::HashMap;
 
-use std::sync::Arc;
-use std::process::exit;
-use colored::Colorize;
 use crate::config::state::Config;
+use colored::Colorize;
+use std::{process::exit, sync::Arc};
 
-#[derive(Debug,Parser,Clone)]
+#[derive(Debug, Parser, Clone)]
 #[clap(author, version, about, long_about = None)]
 pub struct ConnectConfig {
     /// A list of environment variables
     #[clap(short, long, required = false, default_value = "", parse(try_from_str = ConnectConfig::parse_env_json), env = "PLUGIN_ENV")]
-    pub env: HashMap<String,String>,
+    pub env: HashMap<String, String>,
 
     /// The script to execute on the given targets
     #[clap(short, long, env = "PLUGIN_SCRIPT")]
@@ -44,15 +43,19 @@ impl ConnectConfig {
     pub fn parse_script_json<'a>(&'a self) -> Result<Vec<String>, std::io::Error> {
         let script = self.script.clone();
         if script.len() == 0 {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "No commands to execute."));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "No commands to execute.",
+            ));
         }
 
-        let mut hash: HashMap<String, serde_json::Value> = serde_json::from_str(&script[0]).unwrap();
+        let mut hash: HashMap<String, serde_json::Value> =
+            serde_json::from_str(&script[0]).unwrap();
 
         let key = String::from("commands");
         if hash.contains_key(&key) {
             let commands = hash.remove(&key).unwrap();
-            let mut ret : Vec<String> = Vec::new();
+            let mut ret: Vec<String> = Vec::new();
 
             for command in commands.as_array().unwrap().clone() {
                 ret.push(serde_json::from_value(command).unwrap());
@@ -61,13 +64,18 @@ impl ConnectConfig {
             return Ok(ret);
         }
 
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, "Missing settings:script:commands"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Missing settings:script:commands",
+        ));
     }
 
-    fn parse_env_json(arg: &str) -> Result<std::collections::HashMap<String,String>, std::io::Error> {
+    fn parse_env_json(
+        arg: &str,
+    ) -> Result<std::collections::HashMap<String, String>, std::io::Error> {
         // Parse
         if arg == "" {
-            return Ok(HashMap::new())
+            return Ok(HashMap::new());
         }
         let v: HashMap<String, serde_json::Value> = serde_json::from_str(arg).unwrap();
 
@@ -118,27 +126,46 @@ impl ConnectConfig {
                         for command in commands.iter() {
                             let command_to_run = match env.trim().is_empty() {
                                 true => format!("{}", command),
-                                false => format!("{}; {}", env, command)
+                                false => format!("{}; {}", env, command),
                             };
 
                             match session.shell(command_to_run).output().await {
-                                    Ok(result) => {
-                                        println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
-                                        println!(
-                                            "{}{}",
-                                            String::from_utf8(result.stdout).unwrap(),
-                                            String::from_utf8(result.stderr).unwrap().red()
-                                        );
+                                Ok(result) => {
+                                    println!(
+                                        "{}",
+                                        format!(
+                                            "{}: {}",
+                                            &host.to_owned().yellow(),
+                                            command.to_owned().green()
+                                        )
+                                    );
+                                    println!(
+                                        "{}{}",
+                                        String::from_utf8(result.stdout).unwrap(),
+                                        String::from_utf8(result.stderr).unwrap().red()
+                                    );
 
                                     // If any commit exits with a non-0 exit status code, stop execution of this task.
                                     if result.status.code() != Some(0) {
-                                        println!("{}", format!("Exit: {}", result.status.code().unwrap()).red().bold());
+                                        println!(
+                                            "{}",
+                                            format!("Exit: {}", result.status.code().unwrap())
+                                                .red()
+                                                .bold()
+                                        );
                                         session.close().await.unwrap();
                                         exit(1);
                                     }
-                                },
+                                }
                                 Err(error) => {
-                                    println!("{}", format!("{}: {}", &host.to_owned().yellow(), command.to_owned().green()));
+                                    println!(
+                                        "{}",
+                                        format!(
+                                            "{}: {}",
+                                            &host.to_owned().yellow(),
+                                            command.to_owned().green()
+                                        )
+                                    );
                                     // If a command fail (eg command not found or similar) stop processing additional commands
                                     println!("{}\n", error.to_string().red().bold().italic());
                                     session.close().await.unwrap();
@@ -146,10 +173,14 @@ impl ConnectConfig {
                                 }
                             };
                         }
-                    },
+                    }
                     // Handle tsh connection errors
                     Err(error) => {
-                        println!("{} {}", "Unable to connect to Teleport target:".red().bold(), &host.to_owned().cyan().italic());
+                        println!(
+                            "{} {}",
+                            "Unable to connect to Teleport target:".red().bold(),
+                            &host.to_owned().cyan().italic()
+                        );
                         if debug {
                             println!("\t{}", error.to_string().italic());
                         }
@@ -164,7 +195,8 @@ impl ConnectConfig {
 
         // Execute all commands asyncronously
         for task in tasks {
-            #[allow(unused_must_use)] {
+            #[allow(unused_must_use)]
+            {
                 task.await;
             }
         }
