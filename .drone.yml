@@ -37,8 +37,8 @@ steps:
       BUCKET:
         from_secret: AWS_BUCKET
     commands:
-      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/focal/
-      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/jammy/
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/focal/
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/jammy/
 
 ---
 kind: pipeline
@@ -79,8 +79,8 @@ steps:
       BUCKET:
         from_secret: AWS_BUCKET
     commands:
-      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/focal/
-      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/jammy/
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/focal/
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/jammy/
 
 ---
 kind: pipeline
