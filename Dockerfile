@@ -10,13 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PLUGIN_OP=connect
 
 # Add the teleport user
-RUN useradd -ms /bin/bash teleport
-
-# Fix permissions on arm64
-RUN ln -s /usr/bin/dpkg-split /usr/sbin/dpkg-split
-RUN ln -s /usr/bin/dpkg-deb /usr/sbin/dpkg-deb
-RUN ln -s /bin/rm /usr/sbin/rm
-RUN ln -s /bin/tar /usr/sbin/tar
+RUN useradd -ms /bin/bash Teleport
 
 # Install dependencies
 RUN apt update

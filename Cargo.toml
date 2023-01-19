@@ -3,7 +3,7 @@ name = "drone-teleport"
 authors = ["Charles R. Portwood II <charlesportwoodii@erianna.com>"]
 description = "A drone plugin for executing remote commands over SSH, through Teleport Machine IDs"
 repository = "https://github.com/charlesportwoodii/drone-teleport"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -23,3 +23,16 @@ serde_json = { version = "^1", features = ["raw_value"] }
 openssh = { version = "^0.9"}
 openssh-sftp-client = { version = "^0.12" }
 colored = { version = "^2.0" }
+
+[package.metadata.deb]
+maintainer = "Charles R. Portwood II <charlesportwoodii@erianna.com>"
+copyright = "2022 - Present, Charles R. Portwood II <charlesportwoodii@erianna.com>"
+extended-description = """Drone Teleport is a command line utility to interact with Teleport nodes through Teleport Machien IDs"""
+depends = "$auto"
+section = "utility"
+priority = "optional"
+revision = "__REVISION__"
+assets = [
+    ["target/release/drone-teleport", "usr/local/bin/", "755"],
+    ["README.md", "usr/share/doc/drone-teleport/README", "644"]
+]
