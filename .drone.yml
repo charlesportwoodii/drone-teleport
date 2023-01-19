@@ -21,7 +21,7 @@ steps:
       - curl https://sh.rustup.rs -sSf | sh -s -- -y
       - $HOME/.cargo/bin/rustup target add x86_64-unknown-linux-gnu
       - $HOME/.cargo/bin/cargo install cargo-deb
-      - $HOME/.cargo/bin/cargo-deb --target x86_64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo-deb -- -v -v --release --locked --offline
   - name: deploy
     image: amazon/aws-cli
     when:
@@ -63,7 +63,7 @@ steps:
       - curl https://sh.rustup.rs -sSf | sh -s -- -y
       - $HOME/.cargo/bin/rustup target add aarch64-unknown-linux-gnu
       - $HOME/.cargo/bin/cargo install cargo-deb
-      - $HOME/.cargo/bin/cargo-deb --target aarch64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo-deb -- -v -v --release --locked --offline
   - name: deploy
     image: amazon/aws-cli
     when:
