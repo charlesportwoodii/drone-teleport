@@ -13,6 +13,8 @@ steps:
       event:
         - push
         - tag
+    environment:
+      PATH: "$PATH:/root/.cargo/bin"
     commands:
       - apt update
       - apt install curl libsodium-dev build-essential libc6-amd64-cross libc6-dev-amd64-cross libc6-arm64-cross libc6-dev-arm64-cross gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu -y ca-certificates --no-install-recommends
