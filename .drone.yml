@@ -1,13 +1,13 @@
 ---
 kind: pipeline
 type: docker
-name: build
+name: build-amd64
 
 platform:
   arch: amd64
 
 steps:
-  - name: "Cargo Build"
+  - name: "Cargo Build AMD64"
     image: ubuntu:22.04
     when:
       event:
@@ -17,18 +17,11 @@ steps:
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
     commands:
       - apt update
-      - apt install curl libsodium-dev build-essential libc6-amd64-cross libc6-dev-amd64-cross libc6-arm64-cross libc6-dev-arm64-cross gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu -y ca-certificates --no-install-recommends
+      - apt install curl libsodium-dev build-essential libc6-amd64-cross libc6-dev-amd64-cross libc6-arm64-cross libc6-dev-arm64-cross gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu ca-certificates -y --no-install-recommends
       - curl https://sh.rustup.rs -sSf | sh -s -- -y
-      - $HOME/.cargo/bin/rustup target add aarch64-unknown-linux-gnu
       - $HOME/.cargo/bin/rustup target add x86_64-unknown-linux-gnu
       - $HOME/.cargo/bin/cargo install cargo-deb
       - $HOME/.cargo/bin/cargo-deb --target x86_64-unknown-linux-gnu
-      - $HOME/.cargo/bin/cargo-deb --target aarch64-unknown-linux-gnu
-      - mkdir -p build/deb/{focal, jammy}
-      - cp target/x86_64-unknown-linux-gnu/debian/*.deb build/deb/focal
-      - cp target/aarch64-unknown-linux-gnu/debian/*.deb build/deb/focal
-      - cp target/x86_64-unknown-linux-gnu/debian/*.deb build/deb/jammy
-      - cp target/aarch64-unknown-linux-gnu/debian/*.deb build/deb/jammy
   - name: deploy
     image: amazon/aws-cli
     when:
@@ -44,8 +37,91 @@ steps:
       BUCKET:
         from_secret: AWS_BUCKET
     commands:
-      - ls -R ./build
-      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./build/ s3://$BUCKET --recursive
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/focal/
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/jammy/
+
+---
+kind: pipeline
+type: docker
+name: build-arm64
+
+platform:
+  arch: arm64
+
+steps:
+  - name: "Cargo Build"
+    image: ubuntu:22.04
+    when:
+      event:
+        - push
+        - tag
+    environment:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
+    commands:
+      - apt update
+      - apt install curl libsodium-dev build-essential libc6-amd64-cross libc6-dev-amd64-cross libc6-arm64-cross libc6-dev-arm64-cross gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu ca-certificates -y --no-install-recommends
+      - curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - $HOME/.cargo/bin/rustup target add aarch64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo install cargo-deb
+      - $HOME/.cargo/bin/cargo-deb --target aarch64-unknown-linux-gnu
+  - name: deploy
+    image: amazon/aws-cli
+    when:
+      event:
+        - tag
+    depends_on:
+      - "Cargo Build"
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_SECRET_ACCESS_KEY
+      BUCKET:
+        from_secret: AWS_BUCKET
+    commands:
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/focal/
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./homemaker/target/debian/*.deb s3://$BUCKET/deb/jammy/
+
+---
+kind: pipeline
+type: docker
+name: update-packages
+
+platform:
+  os: linux
+  arch: arm64
+
+depends_on:
+  - build-amd64
+  - build-arm64
+
+clone:
+  disable: true
+
+volumes:
+  - name: teleport-ssh
+    host:
+      path: /opt/teleport/erianna
+
+steps:
+  - name: update-apt-packages
+    when:
+      event:
+        - tag
+    image: charlesportwoodii/drone-teleport:latest
+    volumes:
+      - name: teleport-ssh
+        path: /opt/teleport/erianna
+    settings:
+      op: connect
+      proxy: teleport.erianna.net
+      hosts:
+        - ayaina.teleport.erianna.net
+      username: drone
+      data_path: /opt/teleport/erianna
+      script:
+        commands:
+          - /usr/local/bin/update-apt-packages
   - name: "Buildx"
     image: docker
     depends_on:
@@ -69,76 +145,3 @@ steps:
     volumes:
       - name: docker_sock
         path: /var/run/docker.sock
-
-volumes:
-  - name: docker_sock
-    host:
-      path: /var/run/docker.sock
-
----
-kind: pipeline
-type: docker
-name: test
-
-platform:
-  arch: amd64
-
-volumes:
-  - name: teleport-ssh
-    host:
-      path: /opt/teleport/home
-
-steps:
-  - name: "Execute Commands"
-    image: charlesportwoodii/drone-teleport:latest
-    volumes:
-      - name: teleport-ssh
-        path: /opt/teleport/home
-    when:
-      event:
-        - promote
-      target:
-        - test
-    settings:
-      op: transfer
-      proxy: teleport.erianna.net
-      hosts:
-        - balminuel.teleport.erianna.net
-      username: ci
-      data_path: /opt/teleport/home
-      debug: true
-      env:
-        kind: ${DRONE_STAGE_KIND}
-        stage: ${DRONE_STAGE_NAME}
-        step: ${DRONE_STAGE_NAME}
-        number: ${DRONE_STAGE_NUMBER}
-      script:
-        commands:
-          - id
-          - whoami
-          - ls -laht | awk '{ print $1 }'
-          - echo ${DRONE_COMMIT_SHA}
-          - echo a{b,c,d} | tr ' ' ,
-  - name: "Transfer Files"
-    image: charlesportwoodii/drone-teleport:latest
-    volumes:
-      - name: teleport-ssh
-        path: /opt/teleport/home
-    when:
-      event:
-        - promote
-      target:
-        - test
-    settings:
-      op: transfer
-      proxy: teleport.erianna.net
-      hosts:
-        - balminuel.teleport.erianna.net
-      username: ci
-      data_path: /opt/teleport/home
-      debug: true
-      files:
-        - src: "test"
-          dst: "/tmp/test"
-        - src: "test/**"
-          dst: "/tmp"

@@ -32,6 +32,6 @@ RUN apt-get autoclean
 RUN rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Copy all architectures into the container
-ADD apt install drone-teleport -y --no-install-recommends
+RUN apt install drone-teleport -y --no-install-recommends
 
 ENTRYPOINT /usr/sbin/drone-teleport $PLUGIN_OP
