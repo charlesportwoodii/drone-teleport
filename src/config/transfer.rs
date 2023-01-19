@@ -90,7 +90,13 @@ impl TransferConfig {
             // Iterate over each host and create the processing task
             // File transfers are syncronous IO, so run them in separate threads
             // todo!() => Make this so it can live outside of this loop
-            let files = self.parse_files_json().unwrap().to_owned();
+            let files = match self.parse_files_json() {
+                Ok(files) => files.to_owned(),
+                Err(e) => {
+                    println!("{}: No files passed.", e.to_string());
+                    exit(1);
+                }
+            };
 
             if files.is_empty() {
                 println!("File list missing src or dst. Hint: settings:files should be an array of objects with src & dst keypairs, not an individual array elements. (e.g.: files: {{ src: ./, dst: /tmp}})");
@@ -224,7 +230,7 @@ impl TransferConfig {
                                     };
 
                                     // Delete the old file
-                                    if let Err(done) = remove_file(tarname.clone()) {
+                                    if let Err(done) = remove_file(format!("/tmp/{}", &tarname)) {
                                         println!(
                                             "{}: Unable to cleanup old file: {}",
                                             &host.bold().yellow(),
@@ -243,6 +249,7 @@ impl TransferConfig {
                                             .read(true)
                                             .create(true)
                                             .write(true)
+                                            .truncate(true)
                                             .open(format!("{}/{}", dst, tarname)),
                                     ) {
                                     Ok(r_file) => {
@@ -251,7 +258,7 @@ impl TransferConfig {
                                     },
                                     Err(e) => {
                                         println!(
-                                            "{}: Unable to cleanup old file: {}",
+                                            "{}: Unable to create file on remote target: {}",
                                             &host.bold().yellow(),
                                             e.to_string().italic()
                                         );

@@ -33,13 +33,19 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "awaitable"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63dfa474accceaf6976818046d0a3b93f6e2ee4eb83bfe5ed6f2e29178a6df73"
+checksum = "70af449c9a763cb655c6a1e5338b42d99c67190824ff90658c1e30be844c0775"
 dependencies = [
- "parking_lot",
- "thiserror",
+ "awaitable-error",
+ "cfg-if",
 ]
+
+[[package]]
+name = "awaitable-error"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5b3469636cdf8543cceab175efca534471f36eee12fb8374aba00eb5e7e7f8a"
 
 [[package]]
 name = "bitflags"
@@ -480,9 +486,6 @@ name = "once_cell"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
-dependencies = [
- "parking_lot_core",
-]
 
 [[package]]
 name = "openssh"
@@ -502,15 +505,16 @@ dependencies = [
 
 [[package]]
 name = "openssh-sftp-client"
-version = "0.11.3"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59a78acbe3fec7d99577564c15d264e2c015c8dccb87af2e47f11917103b1531"
+checksum = "f4fa8e5f26e549bd266d9bcd9e5b4fd344729985ef1a7f5ac3e51f3f96a4a620"
 dependencies = [
  "bytes",
  "derive_destructure2",
  "once_cell",
  "openssh-sftp-client-lowlevel",
  "openssh-sftp-error",
+ "scopeguard",
  "tokio",
  "tokio-io-utility",
  "tokio-util",
@@ -518,14 +522,16 @@ dependencies = [
 
 [[package]]
 name = "openssh-sftp-client-lowlevel"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03c9fcb2be7203d37dbe12397bfdfc3c8924eb4e3995caabd6da046fdd8af778"
+checksum = "9c0bfcb17fcc9c91763db9b67749f5ea9da2a6b1b3f38cb2147f31b87e54ef30"
 dependencies = [
+ "awaitable",
  "bytes",
  "concurrent_arena",
  "derive_destructure2",
  "openssh-sftp-error",
+ "openssh-sftp-protocol",
  "pin-project",
  "tokio",
  "tokio-io-utility",
@@ -533,29 +539,39 @@ dependencies = [
 
 [[package]]
 name = "openssh-sftp-error"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c46348f6febb2958a569a07969973a0a0470e8f03c71f6208dad6ced5e04542"
+checksum = "3d836b428ead150165d1178ed0aa672791c13b3ae9616ea1e34d13730a2cb486"
 dependencies = [
- "awaitable",
- "openssh-sftp-protocol",
+ "awaitable-error",
+ "openssh-sftp-protocol-error",
+ "ssh_format_error",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "openssh-sftp-protocol"
-version = "0.22.1"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6f174de5e33754bdc3cfc3c47b88a526f26fecddcd90833c74338ca5468058a"
+checksum = "a1ce98f01a09cbbffabb7e9d1eb7c0d9551586740dadf7ea14fb25c92c24b591"
 dependencies = [
  "bitflags",
  "num-derive",
  "num-traits",
- "once_cell",
+ "openssh-sftp-protocol-error",
  "serde",
- "shared_arena",
  "ssh_format",
+ "vec-strings",
+]
+
+[[package]]
+name = "openssh-sftp-protocol-error"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0719269eb3f037866ae07ec89cb44ed2c1d63b72b2390cef8e1aa3016a956ff8"
+dependencies = [
+ "serde",
  "thiserror",
  "vec-strings",
 ]
@@ -778,15 +794,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shared_arena"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453bd8f0fe0f0d13eb13988c314a8bb5c2f8a44960a021e5fdae1c3798804274"
-dependencies = [
- "static_assertions",
-]
-
-[[package]]
 name = "shell-escape"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -828,11 +835,21 @@ dependencies = [
 
 [[package]]
 name = "ssh_format"
-version = "0.13.5"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01c58aef33f744b17ed25a50b6e55d082c397b36b40b5d576ee7abdff5459183"
+checksum = "24ab31081d1c9097c327ec23550858cb5ffb4af6b866c1ef4d728455f01f3304"
 dependencies = [
  "bytes",
+ "serde",
+ "ssh_format_error",
+]
+
+[[package]]
+name = "ssh_format_error"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be3c6519de7ca611f71ef7e8a56eb57aa1c818fecb5242d0a0f39c83776c210c"
+dependencies = [
  "serde",
 ]
 
@@ -841,12 +858,6 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
-
-[[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "strsim"

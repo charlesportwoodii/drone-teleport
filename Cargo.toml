@@ -21,5 +21,5 @@ clap = { version = "^3.2", features = ["derive", "env"] }
 serde = { version = "^1", features = ["derive"] }
 serde_json = { version = "^1", features = ["raw_value"] }
 openssh = { version = "^0.9"}
-openssh-sftp-client = { version = "^0.11" }
+openssh-sftp-client = { version = "^0.12" }
 colored = { version = "^2.0" }
