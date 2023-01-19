@@ -237,15 +237,27 @@ impl TransferConfig {
                                 }
 
                                 // Create the remote archive file on the SFTP server
-                                let mut r_file = handle
+                                let mut r_file = match handle
                                     .block_on(
                                         sftp.options()
                                             .read(true)
                                             .create(true)
                                             .write(true)
                                             .open(format!("{}/{}", dst, tarname)),
-                                    )
-                                    .unwrap();
+                                    ) {
+                                    Ok(r_file) => {
+                                        println!("{}: Created remote file: {}", &host.bold().yellow(), format!("{}/{}", dst, tarname));
+                                        r_file
+                                    },
+                                    Err(e) => {
+                                        println!(
+                                            "{}: Unable to cleanup old file: {}",
+                                            &host.bold().yellow(),
+                                            e.to_string().italic()
+                                        );
+                                        exit(1);
+                                    }
+                                };
 
                                 // Rewind the archive by re-opening the file
                                 let mut farchive = File::open(format!("/tmp/{}", tarname)).unwrap();

@@ -19,8 +19,31 @@ steps:
       - curl https://sh.rustup.rs -sSf | sh -s -- -y
       - $HOME/.cargo/bin/rustup target add aarch64-unknown-linux-gnu
       - $HOME/.cargo/bin/rustup target add x86_64-unknown-linux-gnu
-      - $HOME/.cargo/bin/cargo build --release --target x86_64-unknown-linux-gnu
-      - $HOME/.cargo/bin/cargo build --release --target aarch64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo install cargo-deb
+      - $HOME/.cargo/bin/cargo-deb --release --target x86_64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo-deb --release --target aarch64-unknown-linux-gnu
+      - mkdir -p build/deb/{focal, jammy}
+      - cp target/x86_64-unknown-linux-gnu/debian/*.deb build/deb/focal
+      - cp target/aarch64-unknown-linux-gnu/debian/*.deb build/deb/focal
+      - cp target/x86_64-unknown-linux-gnu/debian/*.deb build/deb/jammy
+      - cp target/aarch64-unknown-linux-gnu/debian/*.deb build/deb/jammy
+  - name: deploy
+    image: amazon/aws-cli
+    when:
+      event:
+        - tag
+    depends_on:
+      - "Cargo Build"
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_SECRET_ACCESS_KEY
+      BUCKET:
+        from_secret: AWS_BUCKET
+    commands:
+      - ls -R ./build
+      - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./build/ s3://$BUCKET --recursive
   - name: "Buildx"
     image: docker
     depends_on:
@@ -42,8 +65,8 @@ steps:
       password:
         from_secret: DOCKER_PASSWORD
     volumes:
-    - name: docker_sock
-      path: /var/run/docker.sock
+      - name: docker_sock
+        path: /var/run/docker.sock
 
 volumes:
   - name: docker_sock

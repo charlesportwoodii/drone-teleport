@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM charlesportwoodii/ubuntu:22.04-base
 
 LABEL maintainer="Charles R. Portwood II <charlesportwoodii@erianna.com" \
     org.label-schema.name="Drone Teleport" \
@@ -32,11 +32,6 @@ RUN apt-get autoclean
 RUN rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Copy all architectures into the container
-ADD target/aarch64-unknown-linux-gnu/release/drone-teleport /usr/sbin/drone-teleport-aarch64
-ADD target/x86_64-unknown-linux-gnu/release/drone-teleport /usr/sbin/drone-teleport-x86_64
-
-# Copy the binary to the correct location and delete unwanted architectures
-RUN mv /usr/sbin/drone-teleport-$(arch) /usr/sbin/drone-teleport
-RUN rm /usr/sbin/drone-teleport-*
+ADD apt install drone-teleport -y --no-install-recommends
 
 ENTRYPOINT /usr/sbin/drone-teleport $PLUGIN_OP
