@@ -125,7 +125,7 @@ steps:
   - name: "Buildx"
     image: docker
     depends_on:
-      - "Cargo Build"
+      - update-apt-packages
     when:
       event:
         - tag
