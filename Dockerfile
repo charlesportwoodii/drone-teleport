@@ -20,12 +20,9 @@ RUN apt install curl ca-certificates -y --no-install-recommends
 RUN curl https://apt.releases.teleport.dev/gpg -o /usr/share/keyrings/teleport-archive-keyring.asc
 RUN echo "deb [signed-by=/usr/share/keyrings/teleport-archive-keyring.asc] https://deb.releases.teleport.dev/ stable main" | tee /etc/apt/sources.list.d/teleport.list > /dev/null
 RUN apt update
-RUN apt install teleport openssh-client -y --no-install-recommends
+RUN apt install teleport openssh-client drone-teleport -y --no-install-recommends
 RUN apt-get clean
 RUN apt-get autoclean
 RUN rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
-
-# Copy all architectures into the container
-RUN apt install drone-teleport -y --no-install-recommends
 
 ENTRYPOINT /usr/sbin/drone-teleport $PLUGIN_OP

@@ -1,14 +1,14 @@
 ---
 kind: pipeline
 type: docker
-name: build-amd64
+name: build-amd64-focal
 
 platform:
   arch: amd64
 
 steps:
-  - name: "Cargo Build AMD64"
-    image: ubuntu:22.04
+  - name: "Cargo Build AMD64 Focal"
+    image: ubuntu:20.04
     when:
       event:
         - push
@@ -39,18 +39,59 @@ steps:
         from_secret: AWS_BUCKET
     commands:
       - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/focal/
+
+---
+kind: pipeline
+type: docker
+name: build-amd64-jammy
+
+platform:
+  arch: amd64
+
+steps:
+  - name: "Cargo Build AMD64 jammy"
+    image: ubuntu:22.04
+    when:
+      event:
+        - push
+        - tag
+    environment:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
+    commands:
+      - apt update
+      - apt install curl libsodium-dev build-essential libc6-amd64-cross libc6-dev-amd64-cross libc6-arm64-cross libc6-dev-arm64-cross gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu ca-certificates -y --no-install-recommends
+      - curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - $HOME/.cargo/bin/rustup target add x86_64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo install cargo-deb
+      - sed -i 's/__REVISION__/${DRONE_BUILD_NUMBER}/g' Cargo.toml
+      - $HOME/.cargo/bin/cargo-deb -- -v -v --release --locked --offline
+  - name: deploy
+    image: amazon/aws-cli
+    when:
+      event:
+        - tag
+    depends_on:
+      - "Cargo Build AMD64"
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_SECRET_ACCESS_KEY
+      BUCKET:
+        from_secret: AWS_BUCKET
+    commands:
       - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/jammy/
 
 ---
 kind: pipeline
 type: docker
-name: build-arm64
+name: build-arm64-focal
 
 platform:
   arch: arm64
 
 steps:
-  - name: "Cargo Build AARCH64"
+  - name: "Cargo Build AARCH64 Focal"
     image: ubuntu:22.04
     when:
       event:
@@ -82,6 +123,47 @@ steps:
         from_secret: AWS_BUCKET
     commands:
       - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/focal/
+
+---
+kind: pipeline
+type: docker
+name: build-arm64-jammy
+
+platform:
+  arch: arm64
+
+steps:
+  - name: "Cargo Build AARCH64 Jammy"
+    image: ubuntu:22.04
+    when:
+      event:
+        - push
+        - tag
+    environment:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin"
+    commands:
+      - apt update
+      - apt install curl libsodium-dev build-essential libc6-amd64-cross libc6-dev-amd64-cross libc6-arm64-cross libc6-dev-arm64-cross gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu ca-certificates -y --no-install-recommends
+      - curl https://sh.rustup.rs -sSf | sh -s -- -y
+      - $HOME/.cargo/bin/rustup target add aarch64-unknown-linux-gnu
+      - $HOME/.cargo/bin/cargo install cargo-deb
+      - sed -i 's/__REVISION__/${DRONE_BUILD_NUMBER}/g' Cargo.toml
+      - $HOME/.cargo/bin/cargo-deb -- -v -v --release --locked --offline
+  - name: deploy
+    image: amazon/aws-cli
+    when:
+      event:
+        - tag
+    depends_on:
+      - "Cargo Build AARCH64"
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_SECRET_ACCESS_KEY
+      BUCKET:
+        from_secret: AWS_BUCKET
+    commands:
       - aws s3 --endpoint-url=https://nyc3.digitaloceanspaces.com cp ./target/debian/*.deb s3://$BUCKET/deb/jammy/
 
 ---
@@ -94,8 +176,10 @@ platform:
   arch: arm64
 
 depends_on:
-  - build-amd64
-  - build-arm64
+  - build-amd64-focal
+  - build-arm64-focal
+  - build-amd64-jammy
+  - build-arm64-jammy
 
 clone:
   disable: true

@@ -3,7 +3,7 @@ name = "drone-teleport"
 authors = ["Charles R. Portwood II <charlesportwoodii@erianna.com>"]
 description = "A drone plugin for executing remote commands over SSH, through Teleport Machine IDs"
 repository = "https://github.com/charlesportwoodii/drone-teleport"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
