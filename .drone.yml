@@ -195,6 +195,7 @@ steps:
       event:
         - tag
     image: charlesportwoodii/drone-teleport:latest
+    network_mode: host
     volumes:
       - name: teleport-ssh
         path: /opt/teleport/erianna
