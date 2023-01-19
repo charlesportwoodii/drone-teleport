@@ -3,23 +3,36 @@ name = "drone-teleport"
 authors = ["Charles R. Portwood II <charlesportwoodii@erianna.com>"]
 description = "A drone plugin for executing remote commands over SSH, through Teleport Machine IDs"
 repository = "https://github.com/charlesportwoodii/drone-teleport"
-version = "0.1.0"
+version = "0.2.7"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.11.0", features = ["full"] }
-glob = { version = "0.3.0" }
-human_bytes = { version = "0.3" }
-zstd = { version = "0.11.2" }
-rand = { version = "0.8.5" }
-futures = { version = "0.3.23" }
-tar = { version = "0.4.38" }
-derivative = { version = "2.2.0" }
-clap = { version = "3.2.17", features = ["derive", "env"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["raw_value"] }
-openssh = { version = "0.9.6"}
-openssh-sftp-client = { version = "0.11.2" }
-colored = { version = "2.0.0" }
+tokio = { version = "^1.11", features = ["full"] }
+glob = { version = "^0.3" }
+human_bytes = { version = "^0.3" }
+zstd = { version = "^0.11" }
+rand = { version = "^0.8" }
+futures = { version = "^0.3" }
+tar = { version = "^0.4" }
+derivative = { version = "^2.2" }
+clap = { version = "^3.2", features = ["derive", "env"] }
+serde = { version = "^1", features = ["derive"] }
+serde_json = { version = "^1", features = ["raw_value"] }
+openssh = { version = "^0.9"}
+openssh-sftp-client = { version = "^0.12" }
+colored = { version = "^2.0" }
+
+[package.metadata.deb]
+maintainer = "Charles R. Portwood II <charlesportwoodii@erianna.com>"
+copyright = "2022 - Present, Charles R. Portwood II <charlesportwoodii@erianna.com>"
+extended-description = """Drone Teleport is a command line utility to interact with Teleport nodes through Teleport Machien IDs"""
+depends = "$auto"
+section = "utility"
+priority = "optional"
+revision = "__REVISION__"
+assets = [
+    ["target/release/drone-teleport", "usr/local/bin/", "755"],
+    ["README.md", "usr/share/doc/drone-teleport/README", "644"]
+]

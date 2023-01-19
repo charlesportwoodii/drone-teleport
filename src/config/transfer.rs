@@ -90,7 +90,13 @@ impl TransferConfig {
             // Iterate over each host and create the processing task
             // File transfers are syncronous IO, so run them in separate threads
             // todo!() => Make this so it can live outside of this loop
-            let files = self.parse_files_json().unwrap().to_owned();
+            let files = match self.parse_files_json() {
+                Ok(files) => files.to_owned(),
+                Err(e) => {
+                    println!("{}: No files passed.", e.to_string());
+                    exit(1);
+                }
+            };
 
             if files.is_empty() {
                 println!("File list missing src or dst. Hint: settings:files should be an array of objects with src & dst keypairs, not an individual array elements. (e.g.: files: {{ src: ./, dst: /tmp}})");
@@ -224,7 +230,7 @@ impl TransferConfig {
                                     };
 
                                     // Delete the old file
-                                    if let Err(done) = remove_file(tarname.clone()) {
+                                    if let Err(done) = remove_file(format!("/tmp/{}", &tarname)) {
                                         println!(
                                             "{}: Unable to cleanup old file: {}",
                                             &host.bold().yellow(),
@@ -237,15 +243,28 @@ impl TransferConfig {
                                 }
 
                                 // Create the remote archive file on the SFTP server
-                                let mut r_file = handle
+                                let mut r_file = match handle
                                     .block_on(
                                         sftp.options()
                                             .read(true)
                                             .create(true)
                                             .write(true)
+                                            .truncate(true)
                                             .open(format!("{}/{}", dst, tarname)),
-                                    )
-                                    .unwrap();
+                                    ) {
+                                    Ok(r_file) => {
+                                        println!("{}: Created remote file: {}", &host.bold().yellow(), format!("{}/{}", dst, tarname));
+                                        r_file
+                                    },
+                                    Err(e) => {
+                                        println!(
+                                            "{}: Unable to create file on remote target: {}",
+                                            &host.bold().yellow(),
+                                            e.to_string().italic()
+                                        );
+                                        exit(1);
+                                    }
+                                };
 
                                 // Rewind the archive by re-opening the file
                                 let mut farchive = File::open(format!("/tmp/{}", tarname)).unwrap();
