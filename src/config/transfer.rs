@@ -157,8 +157,10 @@ impl TransferConfig {
                                         let mut perm = Permissions::new();
                                         perm.set_execute_by_owner(true);
                                         perm.set_execute_by_group(true);
+                                        perm.set_execute_by_other(true);
                                         perm.set_read_by_owner(true);
                                         perm.set_read_by_group(true);
+                                        perm.set_read_by_other(true);
                                         perm.set_write_by_owner(true);
                                         perm.set_write_by_group(true);
 
