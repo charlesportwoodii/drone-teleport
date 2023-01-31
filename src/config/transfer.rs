@@ -3,6 +3,7 @@ extern crate tar;
 use crate::config::state::Config;
 
 use clap::Parser;
+use openssh_sftp_client::metadata::Permissions;
 use std::collections::HashMap;
 
 use colored::Colorize;
@@ -153,7 +154,17 @@ impl TransferConfig {
                                     let path = Path::new(fp.as_str());
                                     #[allow(unused_must_use)]
                                     {
+                                        let mut perm = Permissions::new();
+                                        perm.set_execute_by_owner(true);
+                                        perm.set_execute_by_group(true);
+                                        perm.set_read_by_owner(true);
+                                        perm.set_read_by_group(true);
+                                        perm.set_write_by_owner(true);
+                                        perm.set_write_by_group(true);
+
                                         handle.block_on(sftp.fs().create_dir(path));
+                                        handle
+                                            .block_on(sftp.fs().set_permissions(fp.as_str(), perm));
                                     }
                                 }
 
@@ -243,19 +254,22 @@ impl TransferConfig {
                                 }
 
                                 // Create the remote archive file on the SFTP server
-                                let mut r_file = match handle
-                                    .block_on(
-                                        sftp.options()
-                                            .read(true)
-                                            .create(true)
-                                            .write(true)
-                                            .truncate(true)
-                                            .open(format!("{}/{}", dst, tarname)),
-                                    ) {
+                                let mut r_file = match handle.block_on(
+                                    sftp.options()
+                                        .read(true)
+                                        .create(true)
+                                        .write(true)
+                                        .truncate(true)
+                                        .open(format!("{}/{}", dst, tarname)),
+                                ) {
                                     Ok(r_file) => {
-                                        println!("{}: Created remote file: {}", &host.bold().yellow(), format!("{}/{}", dst, tarname));
+                                        println!(
+                                            "{}: Created remote file: {}",
+                                            &host.bold().yellow(),
+                                            format!("{}/{}", dst, tarname)
+                                        );
                                         r_file
-                                    },
+                                    }
                                     Err(e) => {
                                         println!(
                                             "{}: Unable to create file on remote target: {}",
