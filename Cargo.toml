@@ -6,7 +6,8 @@ repository = "https://github.com/charlesportwoodii/drone-teleport"
 version = "0.2.9"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[registries.crates-io]
+protocol = "sparse"
 
 [dependencies]
 tokio = { version = "^1.11", features = ["full"] }
