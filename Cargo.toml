@@ -3,7 +3,7 @@ name = "drone-teleport"
 authors = ["Charles R. Portwood II <charlesportwoodii@erianna.com>"]
 description = "A drone plugin for executing remote commands over SSH, through Teleport Machine IDs"
 repository = "https://github.com/charlesportwoodii/drone-teleport"
-version = "0.2.9"
+version = "0.2.10"
 edition = "2021"
 
 [registries.crates-io]
