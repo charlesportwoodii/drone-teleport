@@ -203,7 +203,7 @@ steps:
       op: connect
       proxy: teleport.erianna.net
       hosts:
-        - ayaina.teleport.erianna.net
+        - registry.teleport.erianna.net
       username: drone
       data_path: /opt/teleport/erianna
       script:
